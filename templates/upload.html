@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}Upload Parking Sign – Park Smart UK{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tab-bar { display:flex; gap:0; border-radius:10px; overflow:hidden; border:2px solid #dde3ea; margin-bottom:20px; }
+  .tab-btn { flex:1; padding:10px; background:#f4f6f9; border:none; cursor:pointer; font-size:13px; font-weight:600; color:#7f8c8d; transition:all .2s; }
+  .tab-btn.active { background:#2c3e50; color:#fff; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  #cameraPanel { position:relative; }
+  #videoFeed {
+    width:100%; border-radius:10px; background:#000;
+    max-height:300px; object-fit:cover; display:block;
+  }
+  #captureCanvas { display:none; }
+  .camera-controls { display:flex; gap:10px; margin-top:10px; }
+  .camera-controls button { flex:1; }
+
+  #cameraError {
+    background:#fdedec; color:#922b21; border:1px solid #f1948a;
+    border-radius:8px; padding:12px; font-size:13px; display:none;
+    margin-bottom:12px;
+  }
+  .capture-preview { display:none; margin-top:10px; }
+  .capture-preview img { width:100%; border-radius:8px; border:2px solid #27ae60; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="card" style="max-width:640px; margin:40px auto;">
+    <div class="card-header">
+      <h1><i class="fa fa-camera"></i> Upload Parking Sign</h1>
+      <p>Capture or upload a photo of a UK parking sign. Our OpenCV OCR engine automatically reads the restriction text and adds the zone to the map.</p>
+    </div>
+
+    <div id="uploadResult" class="alert" style="display:none;"></div>
+
+    <!-- Tab switcher: Camera vs File Upload -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('camera', this)">
+        <i class="fa fa-video"></i> Live Camera
+      </button>
+      <button class="tab-btn" onclick="switchTab('file', this)">
+        <i class="fa fa-file-image"></i> Upload File
+      </button>
+    </div>
+
+    <!-- ── CAMERA TAB ──────────────────────────────────────────────────── -->
+    <div id="tab-camera" class="tab-panel active">
+      <div id="cameraError">
+        <i class="fa fa-exclamation-triangle"></i>
+        <span id="cameraErrorMsg">Camera not available. Please use file upload instead.</span>
+      </div>
+
+      <div id="cameraPanel">
+        <video id="videoFeed" autoplay playsinline muted></video>
+        <canvas id="captureCanvas"></canvas>
+
+        <div class="capture-preview" id="capturePreview">
+          <p style="font-size:13px; color:#27ae60; font-weight:600; margin-bottom:6px;">
+            <i class="fa fa-check-circle"></i> Photo captured
+          </p>
+          <img id="capturedImg" src="" alt="Captured sign" />
+        </div>
+
+        <div class="camera-controls">
+          <button class="btn btn-primary" id="captureBtn" onclick="capturePhoto()">
+            <i class="fa fa-camera"></i> Capture Photo
+          </button>
+          <button class="btn btn-secondary" id="retakeBtn" onclick="retakePhoto()" style="display:none;">
+            <i class="fa fa-redo"></i> Retake
+          </button>
+          <button class="btn btn-secondary" id="switchCamBtn" onclick="switchCamera()" title="Flip camera">
+            <i class="fa fa-sync-alt"></i> Flip
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FILE UPLOAD TAB ─────────────────────────────────────────────── -->
+    <div id="tab-file" class="tab-panel">
+      <div class="upload-zone" id="uploadZone">
+        <i class="fa fa-cloud-upload-alt fa-3x" style="color:#bdc3c7;"></i>
+        <p>Drag &amp; drop or click to select an image</p>
+        <input type="file" id="signImage" name="sign_image" accept="image/*" style="display:none;" />
+        <img id="previewImg" style="display:none; max-width:100%; border-radius:8px; margin-top:12px;" alt="Preview" />
+      </div>
+    </div>
+
+    <!-- ── SHARED LOCATION FIELDS ─────────────────────────────────────── -->
+    <div class="form-group" style="margin-top:16px;">
+      <label for="streetName"><i class="fa fa-road"></i> Street Name</label>
+      <input type="text" id="streetName" name="street_name"
+             placeholder="e.g. Oxford Street, London" class="form-control" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="latitude"><i class="fa fa-map-marker-alt"></i> Latitude</label>
+        <input type="number" id="latitude" name="latitude"
+               step="0.000001" placeholder="e.g. 51.5074" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label for="longitude"><i class="fa fa-map-marker-alt"></i> Longitude</label>
+        <input type="number" id="longitude" name="longitude"
+               step="0.000001" placeholder="e.g. -0.1278" class="form-control" />
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:16px;">
+      <button type="button" class="btn btn-secondary" onclick="getLocation()">
+        <i class="fa fa-crosshairs"></i> Use My Location
+      </button>
+    </div>
+
+    <button type="button" class="btn btn-primary" id="submitBtn" onclick="submitSign()" style="width:100%;">
+      <i class="fa fa-upload"></i> Process Sign with OCR
+    </button>
+
+    <!-- ── OCR RESULT PANEL ────────────────────────────────────────────── -->
+    <div id="ocrResult" style="display:none;" class="ocr-result-panel">
+      <h3><i class="fa fa-magic"></i> OCR Result</h3>
+      <div id="ocrContent"></div>
+      <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top:16px;">
+        <i class="fa fa-map"></i> View on Map
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let activeTab     = 'camera';
+let mediaStream   = null;
+let capturedBlob  = null;
+let facingMode    = 'environment'; // rear camera first
+
+// ── Tab switching ──────────────────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+  if (tab === 'camera') {
+    startCamera();
+  } else {
+    stopCamera();
+  }
+}
+
+// ── Camera ─────────────────────────────────────────────────────────────────────
+async function startCamera() {
+  document.getElementById('cameraError').style.display = 'none';
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showCameraError('Your browser does not support camera access. Please use file upload.');
+    return;
+  }
+  try {
+    if (mediaStream) stopCamera();
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    const video = document.getElementById('videoFeed');
+    video.srcObject = mediaStream;
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      showCameraError('Camera permission denied. Please allow camera access in your browser settings.');
+    } else if (err.name === 'NotFoundError') {
+      showCameraError('No camera found on this device. Please use file upload.');
+    } else {
+      showCameraError('Camera error: ' + err.message + '. Please use file upload.');
+    }
+  }
+}
+
+function stopCamera() {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+}
+
+async function switchCamera() {
+  facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+  await startCamera();
+}
+
+function capturePhoto() {
+  const video  = document.getElementById('videoFeed');
+  const canvas = document.getElementById('captureCanvas');
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  canvas.toBlob(blob => {
+    capturedBlob = blob;
+    const url = URL.createObjectURL(blob);
+    document.getElementById('capturedImg').src = url;
+    document.getElementById('capturePreview').style.display = 'block';
+    document.getElementById('captureBtn').style.display  = 'none';
+    document.getElementById('retakeBtn').style.display   = 'inline-flex';
+    video.style.display = 'none';
+  }, 'image/jpeg', 0.92);
+}
+
+function retakePhoto() {
+  capturedBlob = null;
+  document.getElementById('capturePreview').style.display = 'none';
+  document.getElementById('captureBtn').style.display  = 'inline-flex';
+  document.getElementById('retakeBtn').style.display   = 'none';
+  document.getElementById('videoFeed').style.display   = 'block';
+}
+
+function showCameraError(msg) {
+  document.getElementById('cameraErrorMsg').textContent = msg;
+  document.getElementById('cameraError').style.display  = 'block';
+  document.getElementById('cameraPanel').style.display  = 'none';
+}
+
+// ── File Upload tab ────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('signImage');
+const previewImg = document.getElementById('previewImg');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  fileInput.files = e.dataTransfer.files;
+  showFilePreview(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => showFilePreview(fileInput.files[0]));
+
+function showFilePreview(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { previewImg.src = e.target.result; previewImg.style.display = 'block'; };
+  reader.readAsDataURL(file);
+}
+
+// ── Geolocation ────────────────────────────────────────────────────────────────
+function getLocation() {
+  if (!navigator.geolocation) { alert('Geolocation not supported by this browser.'); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('latitude').value  = pos.coords.latitude.toFixed(6);
+      document.getElementById('longitude').value = pos.coords.longitude.toFixed(6);
+    },
+    () => alert('Could not get location. Please enter coordinates manually.')
+  );
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────────
+async function submitSign() {
+  const btn = document.getElementById('submitBtn');
+
+  // Build FormData based on active tab
+  const fd = new FormData();
+
+  if (activeTab === 'camera') {
+    if (!capturedBlob) { alert('Please capture a photo first.'); return; }
+    fd.append('sign_image', capturedBlob, 'camera_capture.jpg');
+  } else {
+    if (!fileInput.files.length) { alert('Please select an image file first.'); return; }
+    fd.append('sign_image', fileInput.files[0]);
+  }
+
+  const street = document.getElementById('streetName').value.trim();
+  const lat    = document.getElementById('latitude').value;
+  const lng    = document.getElementById('longitude').value;
+  if (street) fd.append('street_name', street);
+  if (lat)    fd.append('latitude',    lat);
+  if (lng)    fd.append('longitude',   lng);
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing with OCR...';
+
+  try {
+    const res  = await fetch('/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    const resultDiv = document.getElementById('uploadResult');
+
+    if (data.success) {
+      resultDiv.className = 'alert alert-success';
+      resultDiv.innerHTML = '<i class="fa fa-check-circle"></i> ' + data.message;
+      resultDiv.style.display = 'block';
+      const r = data.ocr_result;
+      document.getElementById('ocrContent').innerHTML =
+        '<table class="info-table">'
+        + '<tr><th>Raw Text</th><td><pre>' + escHtml(r.raw_text) + '</pre></td></tr>'
+        + '<tr><th>Type</th><td><span class="badge badge-' + r.restriction_type + '">' + r.restriction_type.replace('_',' ') + '</span></td></tr>'
+        + (r.hours       ? '<tr><th>Hours</th><td>'    + escHtml(r.hours)       + '</td></tr>' : '')
+        + (r.days        ? '<tr><th>Days</th><td>'     + escHtml(r.days)        + '</td></tr>' : '')
+        + (r.permit_zone ? '<tr><th>Zone</th><td>'     + escHtml(r.permit_zone) + '</td></tr>' : '')
+        + (r.max_stay    ? '<tr><th>Max Stay</th><td>' + escHtml(r.max_stay)    + '</td></tr>' : '')
+        + '</table>';
+      document.getElementById('ocrResult').style.display = 'block';
+    } else {
+      resultDiv.className = 'alert alert-error';
+      resultDiv.innerHTML = '<i class="fa fa-exclamation-circle"></i> ' + (data.message || 'Processing failed.');
+      resultDiv.style.display = 'block';
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Upload failed. Please check your connection and try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-upload"></i> Process Sign with OCR';
+  }
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Auto-start camera on load ──────────────────────────────────────────────────
+window.addEventListener('load', () => startCamera());
+window.addEventListener('beforeunload', () => stopCamera());
+</script>
+{% endblock %}

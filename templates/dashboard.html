@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Park Smart UK{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <h1 class="page-title"><i class="fa fa-chart-bar"></i> Dashboard &amp; Zone Management</h1>
+
+  <!-- Stat cards -->
+  <div class="stats-grid">
+    <div class="stat-card stat-total">
+      <div class="stat-icon"><i class="fa fa-map-marker-alt"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total Zones</div></div>
+    </div>
+    <div class="stat-card stat-free">
+      <div class="stat-icon"><i class="fa fa-check-circle"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ stats.free }}</div><div class="stat-label">Free Zones</div></div>
+    </div>
+    <div class="stat-card stat-timed">
+      <div class="stat-icon"><i class="fa fa-clock"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ stats.timed }}</div><div class="stat-label">Timed Zones</div></div>
+    </div>
+    <div class="stat-card stat-permit">
+      <div class="stat-icon"><i class="fa fa-id-card"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ stats.permit }}</div><div class="stat-label">Permit Only</div></div>
+    </div>
+    <div class="stat-card stat-disabled">
+      <div class="stat-icon"><i class="fa fa-wheelchair"></i></div>
+      <div class="stat-body"><div class="stat-value">{{ stats.disabled }}</div><div class="stat-label">Disabled Bays</div></div>
+    </div>
+  </div>
+
+  <!-- Zone management table -->
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h2 style="margin:0;">All Parking Zones</h2>
+      <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('upload_sign') }}" class="btn btn-secondary btn-sm">
+          <i class="fa fa-camera"></i> OCR Upload
+        </a>
+        <a href="{{ url_for('add_zone_manual') }}" class="btn btn-primary btn-sm">
+          <i class="fa fa-plus"></i> Add Zone Manually
+        </a>
+      </div>
+    </div>
+
+    <p style="font-size:13px; color:#7f8c8d; margin-bottom:16px;">
+      <i class="fa fa-info-circle"></i>
+      Use <b>Edit</b> to update council regulation data (hours, days, type) when local rules change.
+      Use <b>Delete</b> to remove outdated zones.
+    </p>
+
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Street</th>
+            <th>Type</th>
+            <th>Hours</th>
+            <th>Days</th>
+            <th>Zone</th>
+            <th>Source</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for zone in zones %}
+          <tr>
+            <td style="max-width:200px; word-break:break-word;">{{ zone.street }}</td>
+            <td><span class="badge badge-{{ zone.restriction_type }}">{{ zone.restriction_type | replace('_', ' ') }}</span></td>
+            <td>{{ zone.hours or '—' }}</td>
+            <td>{{ zone.days or '—' }}</td>
+            <td>{{ zone.permit_zone or '—' }}</td>
+            <td>
+              <span style="font-size:11px; color:#95a5a6;">
+                {{ zone.source if zone.source else ('upload' if zone.image_path is defined and zone.image_path else 'seed') }}
+              </span>
+            </td>
+            <td style="white-space:nowrap;">
+              <a href="{{ url_for('index') }}?highlight={{ zone.id }}" class="btn-icon" title="View on map">
+                <i class="fa fa-map"></i>
+              </a>
+              <a href="{{ url_for('edit_zone', zone_id=zone.id) }}" class="btn-icon" title="Edit zone" style="background:#fef9e7; color:#e67e22;">
+                <i class="fa fa-edit"></i>
+              </a>
+              <form method="POST" action="{{ url_for('delete_zone', zone_id=zone.id) }}" style="display:inline;"
+                    onsubmit="return confirm('Delete zone: {{ zone.street }}?');">
+                <button type="submit" class="btn-icon" title="Delete zone" style="background:#fdedec; color:#e74c3c; border:none; cursor:pointer;">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

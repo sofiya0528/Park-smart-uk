@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}About – Park Smart UK{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width:860px; margin:40px auto;">
+  <div class="card">
+    <h1><i class="fa fa-info-circle"></i> About Park Smart UK</h1>
+    <p>
+      Park Smart UK is an interactive, web-based mapping system that displays street-specific parking
+      availability and restrictions across the United Kingdom. It combines geospatial mapping,
+      computer vision OCR, and machine-learning availability forecasting to reduce parking stress
+      and help drivers avoid costly Penalty Charge Notices (PCNs).
+    </p>
+
+    <h2>Key Features</h2>
+    <ul>
+      <li><strong>Interactive Leaflet.js Map</strong> — colour-coded parking zones with real-time filter controls.</li>
+      <li><strong>OpenCV OCR Engine</strong> — upload a photo of any UK parking sign; the system extracts restriction details automatically.</li>
+      <li><strong>ML Availability Predictor</strong> — TensorFlow LSTM model forecasts occupancy trends based on historical data.</li>
+      <li><strong>Crowdsourced Data</strong> — any user can contribute new signs, expanding map coverage organically.</li>
+      <li><strong>Disabled Bay Finder</strong> — dedicated filter to locate Blue Badge bays instantly.</li>
+    </ul>
+
+    <h2>Technology Stack</h2>
+    <table class="info-table">
+      <tr><th>Backend</th>        <td>Python 3.11, Flask 3.x</td></tr>
+      <tr><th>Computer Vision</th><td>OpenCV 4.x, pytesseract (Tesseract 5)</td></tr>
+      <tr><th>Machine Learning</th><td>TensorFlow 2.x / Keras LSTM; scikit-learn GBR fallback</td></tr>
+      <tr><th>Mapping</th>        <td>Leaflet.js 1.9 + OpenStreetMap tiles (100% free, no API key)</td></tr>
+      <tr><th>Data</th>           <td>JSON store (dev); PostgreSQL + PostGIS (production)</td></tr>
+      <tr><th>Dev Environment</th><td>Anaconda, VS Code</td></tr>
+    </table>
+
+    <h2>Intellectual Property</h2>
+    <p>
+      The project uses only open-source software (Python, TensorFlow, OpenCV, Flask, Leaflet.js).
+      All mapping data is sourced from OpenStreetMap (ODbL licence) or original datasets.
+      No third-party proprietary APIs are used.
+    </p>
+
+    <h2>Project Aims</h2>
+    <ul>
+      <li>Reduce urban congestion caused by drivers searching for parking.</li>
+      <li>Help drivers comply with local council regulations and avoid PCNs.</li>
+      <li>Improve accessibility by surfacing disabled and free parking prominently.</li>
+      <li>Demonstrate the value of computer vision applied to civic problems.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
