@@ -124,7 +124,7 @@
     <div id="ocrResult" style="display:none;" class="ocr-result-panel">
       <h3><i class="fa fa-magic"></i> OCR Result</h3>
       <div id="ocrContent"></div>
-      <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top:16px;">
+      <a href="{{ url_for('index') }}" id="viewOnMapBtn" class="btn btn-primary" style="margin-top:16px;">
         <i class="fa fa-map"></i> View on Map
       </a>
     </div>
@@ -292,6 +292,7 @@ async function submitSign() {
       resultDiv.className = 'alert alert-success';
       resultDiv.innerHTML = '<i class="fa fa-check-circle"></i> ' + data.message;
       resultDiv.style.display = 'block';
+      document.getElementById('viewOnMapBtn').href = '/?highlight=' + encodeURIComponent(data.zone_id);
       const r = data.ocr_result;
       document.getElementById('ocrContent').innerHTML =
         '<table class="info-table">'

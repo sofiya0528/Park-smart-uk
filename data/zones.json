@@ -11,7 +11,7 @@
     "permit_zone": null,
     "max_stay": null,
     "submitted_at": "2024-01-15T09:00:00",
-    "updated_at": "2026-04-12T19:50:06.029443",
+    "updated_at": "2026-04-12T20:50:30.113183",
     "updated_by": "admin"
   },
   {
@@ -253,5 +253,75 @@
     "submitted_at": "2026-04-12T19:50:06.006977",
     "source": "manual_admin",
     "id": "user-1ed2e3dc"
+  },
+  {
+    "lat": 22.311846,
+    "lng": 73.238748,
+    "street": "Unknown Street",
+    "restriction_type": "timed",
+    "restriction_text": "(P}\nPARKING",
+    "hours": null,
+    "days": null,
+    "permit_zone": null,
+    "max_stay": null,
+    "image_path": "static/images/uploads/20260412_201246_parking-sign-board-vector-illustration-2TAY86M.jpg",
+    "submitted_at": "2026-04-12T20:12:54.741926",
+    "id": "user-4e616f4b"
+  },
+  {
+    "lat": 22.311846,
+    "lng": 73.238748,
+    "street": "Unknown Street",
+    "restriction_type": "timed",
+    "restriction_text": "(P}\nPARKING",
+    "hours": null,
+    "days": null,
+    "permit_zone": null,
+    "max_stay": null,
+    "image_path": "static/images/uploads/20260412_201341_parking-sign-board-vector-illustration-2TAY86M.jpg",
+    "submitted_at": "2026-04-12T20:13:49.323800",
+    "id": "user-286cb300"
+  },
+  {
+    "street": "Test Admin Street, London",
+    "restriction_type": "timed",
+    "restriction_text": "No Waiting 8am-6pm",
+    "hours": "8am - 6pm",
+    "days": "Monday - Saturday",
+    "permit_zone": null,
+    "max_stay": null,
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "submitted_at": "2026-04-12T20:17:14.887922",
+    "source": "manual_admin",
+    "id": "user-9ac5cf14"
+  },
+  {
+    "street": "Test Admin Street, London",
+    "restriction_type": "timed",
+    "restriction_text": "No Waiting 8am-6pm",
+    "hours": "8am - 6pm",
+    "days": "Monday - Saturday",
+    "permit_zone": null,
+    "max_stay": null,
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "submitted_at": "2026-04-12T20:50:30.088842",
+    "source": "manual_admin",
+    "id": "user-f56e4793"
+  },
+  {
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "street": "Unknown Street",
+    "restriction_type": "timed",
+    "restriction_text": "(P}\nPARKING",
+    "hours": null,
+    "days": null,
+    "permit_zone": null,
+    "max_stay": null,
+    "image_path": "static/images/uploads/20260412_205112_parking-sign-board-vector-illustration-2TAY86M.jpg",
+    "submitted_at": "2026-04-12T20:51:25.343976",
+    "id": "user-5249592e"
   }
 ]

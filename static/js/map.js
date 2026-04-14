@@ -20,6 +20,14 @@ var distanceService = null;
 var directionsService = null;
 var directionsRenderer = null;
 var placesService = null;
+var navigationWatchId = null;
+var navigationActive = false;
+var activeDestination = null;
+var activeTravelMode = 'DRIVING';
+var lastDirectionsResult = null;
+var lastNavigationRerouteAt = 0;
+var lastNavigationOrigin = null;
+var currentStepIndex = 0;
 
 var TYPE_COLOURS = {
   free: '#27ae60', timed: '#e67e22', pay_display: '#2980b9',
@@ -143,6 +151,7 @@ function addZoneMarker(zone) {
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
 async function openDetailPanel(zone, marker) {
+  stopLiveNavigation();
   selectedZone = zone;
   var colour = TYPE_COLOURS[zone.restriction_type] || TYPE_COLOURS.unknown;
   var label  = TYPE_LABELS[zone.restriction_type]  || 'Unknown';
@@ -246,6 +255,7 @@ function closeDetailPanel() {
   document.getElementById('detailPanel').style.display = 'none';
   selectedZone = null;
   if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
+  stopLiveNavigation();
   hideSV();
 }
 
@@ -263,13 +273,21 @@ function getDirections() {
 
   if (fromVal.startsWith('📍 My Location') && userLat && userLng) {
     origin = new google.maps.LatLng(userLat, userLng);
-    computeRoute(origin, dest, btn);
+    computeRoute(origin, dest, btn, {
+      originLabel: 'My Location',
+      fromLiveLocation: true,
+      keepNavigation: false
+    });
   } else {
     var geocoder = new google.maps.Geocoder();
     geocoder.geocode({ address: fromVal, region: 'gb' }, function(results, status) {
       if (status === 'OK' && results[0]) {
         origin = results[0].geometry.location;
-        computeRoute(origin, dest, btn);
+        computeRoute(origin, dest, btn, {
+          originLabel: results[0].formatted_address || fromVal,
+          fromLiveLocation: false,
+          keepNavigation: false
+        });
       } else {
         alert('Could not find that location. Try a postcode or full street address.');
         btn.textContent = 'Get Directions'; btn.disabled = false;
@@ -278,8 +296,9 @@ function getDirections() {
   }
 }
 
-function computeRoute(origin, dest, btn) {
-  var travelMode = document.getElementById('travelMode') ? document.getElementById('travelMode').value : 'DRIVING';
+function computeRoute(origin, dest, btn, options) {
+  options = options || {};
+  var travelMode = options.travelMode || (document.getElementById('travelMode') ? document.getElementById('travelMode').value : 'DRIVING');
   directionsService.route({
     origin: origin,
     destination: dest,
@@ -291,7 +310,15 @@ function computeRoute(origin, dest, btn) {
     btn.textContent = 'Get Directions'; btn.disabled = false;
     if (status === 'OK') {
       directionsRenderer.setDirections(result);
-      showDirectionsResult(result, travelMode);
+      lastDirectionsResult = result;
+      activeDestination = dest;
+      activeTravelMode = travelMode;
+      showDirectionsResult(result, travelMode, options.originLabel, options.fromLiveLocation);
+      if (navigationActive || options.keepNavigation) {
+        updateLiveNavigationUi(result);
+      } else {
+        hideLiveNavigationCard();
+      }
     } else {
       document.getElementById('directionsResult').style.display = 'block';
       document.getElementById('directionsResult').innerHTML =
@@ -300,7 +327,7 @@ function computeRoute(origin, dest, btn) {
   });
 }
 
-function showDirectionsResult(result, mode) {
+function showDirectionsResult(result, mode, originLabel, fromLiveLocation) {
   var leg = result.routes[0].legs[0];
   document.getElementById('directionsForm').style.display = 'none';
   var modeIcon = { DRIVING: '🚗', WALKING: '🚶', BICYCLING: '🚲', TRANSIT: '🚌' };
@@ -326,12 +353,15 @@ function showDirectionsResult(result, mode) {
     + '<div style="font-size:20px;font-weight:700;color:#27ae60;">' + leg.duration.text + '</div>'
     + '<div style="font-size:11px;color:#7f8c8d;">' + (modeIcon[mode] || '🚗') + ' Travel time</div></div>'
     + '</div>'
-    + '<div style="font-size:11px;color:#7f8c8d;margin-bottom:8px;">From: ' + leg.start_address + '</div>'
+    + '<div style="font-size:11px;color:#7f8c8d;margin-bottom:8px;">From: ' + escHtml(originLabel || leg.start_address) + '</div>'
     + '<div style="max-height:180px;overflow-y:auto;border:1px solid #f0f2f5;border-radius:8px;padding:6px 10px;">'
     + stepsHtml + '</div>'
-    + '<div style="display:flex;gap:6px;margin-top:10px;">'
-    + '<button onclick="showDirectionsForm()" style="flex:1;padding:8px;border:1px solid #dde3ea;border-radius:6px;background:#f8f9fa;cursor:pointer;font-size:12px;">← Change</button>'
-    + '<button onclick="clearRoute()" style="flex:1;padding:8px;border:1px solid #fdedec;border-radius:6px;background:#fdedec;color:#e74c3c;cursor:pointer;font-size:12px;">✕ Clear</button>'
+    + '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">'
+    + (navigationActive
+      ? '<button onclick="recenterNavigation()" style="flex:1;min-width:96px;padding:8px;border:1px solid #dbeafe;border-radius:6px;background:#dbeafe;color:#1d4ed8;cursor:pointer;font-size:12px;font-weight:700;">◎ Follow Me</button>'
+      : '<button onclick="startLiveNavigation()" style="flex:1;min-width:96px;padding:8px;border:1px solid #dbeafe;border-radius:6px;background:#dbeafe;color:#1d4ed8;cursor:pointer;font-size:12px;font-weight:700;">▶ Start Live</button>')
+    + '<button onclick="showDirectionsForm()" style="flex:1;min-width:96px;padding:8px;border:1px solid #dde3ea;border-radius:6px;background:#f8f9fa;cursor:pointer;font-size:12px;">← Change</button>'
+    + '<button onclick="clearRoute()" style="flex:1;min-width:96px;padding:8px;border:1px solid #fdedec;border-radius:6px;background:#fdedec;color:#e74c3c;cursor:pointer;font-size:12px;">✕ Clear</button>'
     + '</div>';
 }
 
@@ -342,6 +372,9 @@ function showDirectionsForm() {
 
 function clearRoute() {
   if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
+  lastDirectionsResult = null;
+  activeDestination = null;
+  stopLiveNavigation();
   showDirectionsForm();
 }
 
@@ -360,6 +393,142 @@ function useMyLocation() {
       icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#3498db', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 }
     });
   }, function() { btn.textContent = '📍'; btn.disabled = false; alert('Could not get your location.'); });
+}
+
+function startLiveNavigation() {
+  if (!selectedZone) {
+    showToast('Choose a parking zone first.', 'error');
+    return;
+  }
+  if (!navigator.geolocation) {
+    showToast('Geolocation is not supported in this browser.', 'error');
+    return;
+  }
+
+  navigationActive = true;
+  activeDestination = new google.maps.LatLng(parseFloat(selectedZone.lat), parseFloat(selectedZone.lng));
+  showLiveNavigationCard('Starting', 'Getting your live position...', 'Route will switch to live guidance once GPS locks on.');
+
+  if (navigationWatchId !== null) navigator.geolocation.clearWatch(navigationWatchId);
+  navigationWatchId = navigator.geolocation.watchPosition(function(pos) {
+    var movedEnough = !lastNavigationOrigin || distanceMeters(lastNavigationOrigin, pos.coords) > 20;
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+    updateUserMarker(userLat, userLng);
+
+    if (gmap) {
+      gmap.panTo({ lat: userLat, lng: userLng });
+    }
+
+    var now = Date.now();
+    if (!movedEnough && now - lastNavigationRerouteAt < 8000 && lastDirectionsResult) {
+      updateLiveNavigationUi(lastDirectionsResult);
+      return;
+    }
+
+    lastNavigationOrigin = { latitude: userLat, longitude: userLng };
+    lastNavigationRerouteAt = now;
+
+    computeRoute(
+      new google.maps.LatLng(userLat, userLng),
+      activeDestination,
+      {
+        textContent: 'Live',
+        disabled: true
+      },
+      {
+        originLabel: 'My live location',
+        fromLiveLocation: true,
+        keepNavigation: true,
+        travelMode: activeTravelMode
+      }
+    );
+  }, function() {
+    showLiveNavigationCard('GPS Error', 'Unable to track your location.', 'Allow location access in the browser to use live navigation.');
+    stopLiveNavigation(false);
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 3000,
+    timeout: 10000
+  });
+}
+
+function stopLiveNavigation(resetCard) {
+  if (navigationWatchId !== null) {
+    navigator.geolocation.clearWatch(navigationWatchId);
+    navigationWatchId = null;
+  }
+  navigationActive = false;
+  lastNavigationOrigin = null;
+  lastNavigationRerouteAt = 0;
+  currentStepIndex = 0;
+  if (resetCard !== false) hideLiveNavigationCard();
+}
+
+function recenterNavigation() {
+  if (userLat && userLng && gmap) {
+    gmap.panTo({ lat: userLat, lng: userLng });
+    gmap.setZoom(Math.max(gmap.getZoom(), 16));
+  }
+}
+
+function updateLiveNavigationUi(result) {
+  var leg = result.routes[0] && result.routes[0].legs[0];
+  if (!leg) return;
+  var step = getCurrentStep(leg);
+  var remainingDistance = leg.distance ? leg.distance.text : 'Unknown distance';
+  var remainingDuration = leg.duration ? leg.duration.text : 'Unknown time';
+  var instruction = step ? stripHtml(step.instructions) : 'Continue on the current route';
+  var meta = remainingDistance + ' remaining · ' + remainingDuration + ' ETA';
+  var stepDistance = step && step.distance ? step.distance.text : '';
+  if (stepDistance) meta += ' · next in ' + stepDistance;
+  showLiveNavigationCard('Live', instruction, meta);
+}
+
+function getCurrentStep(leg) {
+  if (!leg.steps || !leg.steps.length || userLat === null || userLng === null) return leg.steps && leg.steps[0];
+  var userPoint = { latitude: userLat, longitude: userLng };
+  for (var i = currentStepIndex; i < leg.steps.length; i++) {
+    var endLoc = leg.steps[i].end_location;
+    var stepEnd = { latitude: endLoc.lat(), longitude: endLoc.lng() };
+    if (distanceMeters(userPoint, stepEnd) > 35) {
+      currentStepIndex = i;
+      return leg.steps[i];
+    }
+  }
+  currentStepIndex = leg.steps.length - 1;
+  return leg.steps[currentStepIndex];
+}
+
+function showLiveNavigationCard(status, instruction, meta) {
+  var card = document.getElementById('liveNavCard');
+  if (!card) return;
+  card.style.display = 'block';
+  document.getElementById('liveNavStatus').textContent = status;
+  document.getElementById('liveNavInstruction').textContent = instruction;
+  document.getElementById('liveNavMeta').textContent = meta;
+}
+
+function hideLiveNavigationCard() {
+  var card = document.getElementById('liveNavCard');
+  if (card) card.style.display = 'none';
+}
+
+function updateUserMarker(lat, lng) {
+  if (userMarker) userMarker.setMap(null);
+  userMarker = new google.maps.Marker({
+    position: { lat: lat, lng: lng },
+    map: gmap,
+    title: 'Your Location',
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 9,
+      fillColor: '#3498db',
+      fillOpacity: 1,
+      strokeColor: '#fff',
+      strokeWeight: 2.5
+    }
+  });
 }
 
 // ── Google Street View (embedded, no redirect) ────────────────────────────────
@@ -476,11 +645,7 @@ function locateMe() {
   navigator.geolocation.getCurrentPosition(function(pos) {
     userLat = pos.coords.latitude; userLng = pos.coords.longitude;
     gmap.panTo({ lat: userLat, lng: userLng }); gmap.setZoom(15);
-    if (userMarker) userMarker.setMap(null);
-    userMarker = new google.maps.Marker({
-      position: { lat: userLat, lng: userLng }, map: gmap, title: 'Your Location',
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#3498db', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 }
-    });
+    updateUserMarker(userLat, userLng);
     showToast('Location found!', 'success');
   }, function() { showToast('Could not get location.', 'error'); });
 }
@@ -501,4 +666,21 @@ document.addEventListener('DOMContentLoaded', function() {
 function escHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function stripHtml(s) {
+  return String(s || '').replace(/<[^>]+>/g, '').trim();
+}
+
+function distanceMeters(a, b) {
+  var toRad = function(v) { return v * Math.PI / 180; };
+  var lat1 = a.latitude, lng1 = a.longitude;
+  var lat2 = b.latitude, lng2 = b.longitude;
+  var dLat = toRad(lat2 - lat1);
+  var dLng = toRad(lng2 - lng1);
+  var sinLat = Math.sin(dLat / 2);
+  var sinLng = Math.sin(dLng / 2);
+  var aa = sinLat * sinLat
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * sinLng * sinLng;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
 }

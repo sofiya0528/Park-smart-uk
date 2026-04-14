@@ -60,6 +60,10 @@ def cache_get(key):
     return None
 def cache_set(key, val):
     _cache[key] = {'v': val, 't': time.time()}
+def clear_zone_cache():
+    for key in list(_cache.keys()):
+        if key.startswith('zones_'):
+            _cache.pop(key, None)
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
@@ -106,6 +110,7 @@ def upload_sign():
             'submitted_at': datetime.now().isoformat(),
         }
         zone_id = get_data().add_parking_zone(zone_data)
+        clear_zone_cache()
         return jsonify({'success': True, 'message': 'Sign processed!',
                         'zone_id': zone_id, 'ocr_result': ocr_result})
 
@@ -154,6 +159,7 @@ def edit_zone(zone_id):
             'updated_at':       datetime.now().isoformat(),
         }
         pd.update_parking_zone(zone_id, updates)
+        clear_zone_cache()
         flash(f'Zone updated successfully.', 'success')
         return redirect(url_for('dashboard'))
     restriction_types = ['free', 'timed', 'pay_display', 'permit', 'no_waiting', 'disabled']
@@ -166,6 +172,7 @@ def delete_zone(zone_id):
     zone = pd.get_zone_by_id(zone_id)
     if zone:
         pd.delete_parking_zone(zone_id)
+        clear_zone_cache()
         flash(f'Zone deleted.', 'success')
     return redirect(url_for('dashboard'))
 
@@ -187,6 +194,7 @@ def add_zone_manual():
             'source':           'manual_admin',
         }
         zone_id = get_data().add_parking_zone(zone_data)
+        clear_zone_cache()
         flash(f'Zone added (ID: {zone_id}).', 'success')
         return redirect(url_for('dashboard'))
     restriction_types = ['free', 'timed', 'pay_display', 'permit', 'no_waiting', 'disabled']

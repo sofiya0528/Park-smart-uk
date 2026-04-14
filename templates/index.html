@@ -125,6 +125,38 @@
   .dir-go-btn { width: 100%; padding: 11px; border-radius: 8px; border: none; background: #2980b9; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s; }
   .dir-go-btn:hover { background: #2471a3; }
   .dir-go-btn:disabled { background: #95a5a6; cursor: not-allowed; }
+  .nav-live-card {
+    display: none;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0f172a, #1e3a8a);
+    color: #fff;
+  }
+  .nav-live-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .nav-live-pill {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.16);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .nav-live-step { font-size: 15px; font-weight: 700; line-height: 1.4; margin-bottom: 6px; }
+  .nav-live-meta { font-size: 12px; color: rgba(255,255,255,.84); }
+  .nav-live-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .nav-live-actions button {
+    flex: 1;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .nav-live-stop { background: #fee2e2; color: #b91c1c; }
+  .nav-live-center { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.18); }
 
   @media (max-width: 900px) {
     .filter-sidebar { display: none; }
@@ -279,6 +311,19 @@
       </div>
 
       <div id="directionsResult" style="display:none;"></div>
+
+      <div id="liveNavCard" class="nav-live-card">
+        <div class="nav-live-head">
+          <div style="font-weight:700;">Live Navigation</div>
+          <div id="liveNavStatus" class="nav-live-pill">Ready</div>
+        </div>
+        <div id="liveNavInstruction" class="nav-live-step">Start navigation to follow your live position.</div>
+        <div id="liveNavMeta" class="nav-live-meta">The route will refresh as you move.</div>
+        <div class="nav-live-actions">
+          <button type="button" class="nav-live-center" onclick="recenterNavigation()">Center Map</button>
+          <button type="button" class="nav-live-stop" onclick="stopLiveNavigation()">Stop</button>
+        </div>
+      </div>
     </div>
 
     <!-- Nearby (Google Places) -->
