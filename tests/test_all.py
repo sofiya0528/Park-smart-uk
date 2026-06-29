@@ -313,6 +313,44 @@ def client():
 class TestFlaskRoutes:
     """HTTP-level tests for all Flask routes."""
 
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self, client):
+        import data.auth as auth
+        import json
+        import os
+        
+        # Save current users
+        self.original_users = []
+        if os.path.exists(auth.USERS_FILE):
+            try:
+                with open(auth.USERS_FILE, 'r', encoding='utf-8') as f:
+                    self.original_users = json.load(f)
+            except:
+                pass
+        
+        # Start with a clean list
+        with open(auth.USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+            
+        # Log in the client
+        client.post('/signup', data={
+            'username': 'testuser',
+            'password': 'password123',
+            'confirm_password': 'password123'
+        })
+        
+        yield
+        
+        # Restore original users
+        if self.original_users:
+            with open(auth.USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.original_users, f, indent=2, ensure_ascii=False)
+        elif os.path.exists(auth.USERS_FILE):
+            try:
+                os.remove(auth.USERS_FILE)
+            except:
+                pass
+
     def test_index_returns_200(self, client):
         res = client.get('/')
         assert res.status_code == 200
@@ -380,6 +418,44 @@ class TestFlaskRoutes:
 class TestAdminRoutes:
     """Tests for admin zone management routes."""
 
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self, client):
+        import data.auth as auth
+        import json
+        import os
+        
+        # Save current users
+        self.original_users = []
+        if os.path.exists(auth.USERS_FILE):
+            try:
+                with open(auth.USERS_FILE, 'r', encoding='utf-8') as f:
+                    self.original_users = json.load(f)
+            except:
+                pass
+        
+        # Start with a clean list
+        with open(auth.USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+            
+        # Log in the client
+        client.post('/signup', data={
+            'username': 'adminuser',
+            'password': 'password123',
+            'confirm_password': 'password123'
+        })
+        
+        yield
+        
+        # Restore original users
+        if self.original_users:
+            with open(auth.USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.original_users, f, indent=2, ensure_ascii=False)
+        elif os.path.exists(auth.USERS_FILE):
+            try:
+                os.remove(auth.USERS_FILE)
+            except:
+                pass
+
     def test_add_zone_manual_get(self, client):
         res = client.get('/admin/zone/add')
         assert res.status_code == 200
@@ -430,3 +506,137 @@ class TestAdminRoutes:
     def test_api_zone_detail_not_found(self, client):
         res = client.get('/api/zones/does-not-exist')
         assert res.status_code == 404
+
+
+# ============================================================================
+# User Authentication & Location Book Tests
+# ============================================================================
+
+class TestUserAuthAndLocationBook:
+    """Tests for user sign up, sign in, logout, and location book bookmarking."""
+
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self):
+        # Setup: Ensure user JSON is in a known state or clean
+        import data.auth as auth
+        import json
+        import os
+        
+        # Save current users if they exist
+        self.original_users = []
+        if os.path.exists(auth.USERS_FILE):
+            try:
+                with open(auth.USERS_FILE, 'r', encoding='utf-8') as f:
+                    self.original_users = json.load(f)
+            except:
+                pass
+        
+        # Write empty user list for test isolation
+        with open(auth.USERS_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+            
+        yield
+        
+        # Teardown: Restore original users
+        if self.original_users:
+            with open(auth.USERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.original_users, f, indent=2, ensure_ascii=False)
+        elif os.path.exists(auth.USERS_FILE):
+            try:
+                os.remove(auth.USERS_FILE)
+            except:
+                pass
+
+    def test_signup_and_login_flow(self, client):
+        # 1. Secured pages redirect when not logged in
+        res = client.get('/upload')
+        assert res.status_code == 302
+        assert '/login' in res.location
+
+        res = client.get('/location-book')
+        assert res.status_code == 302
+        assert '/login' in res.location
+
+        # 2. Try to signup with invalid fields
+        res = client.post('/signup', data={
+            'username': 'te',  # username too short
+            'password': 'password123',
+            'confirm_password': 'password123'
+        })
+        assert b"Username must be at least 3 characters long." in res.data or res.status_code == 200
+
+        # 3. Successful signup
+        res = client.post('/signup', data={
+            'username': 'testuser',
+            'password': 'password123',
+            'confirm_password': 'password123'
+        }, follow_redirects=True)
+        assert res.status_code == 200
+        assert b"Account created successfully!" in res.data
+
+        # 4. Logout
+        res = client.get('/logout', follow_redirects=True)
+        assert res.status_code == 200
+        assert b"You have been logged out." in res.data
+
+        # 5. Login with wrong credentials
+        res = client.post('/login', data={
+            'username': 'testuser',
+            'password': 'wrongpassword'
+        }, follow_redirects=True)
+        assert b"Invalid username or password." in res.data
+
+        # 6. Login with correct credentials
+        res = client.post('/login', data={
+            'username': 'testuser',
+            'password': 'password123'
+        }, follow_redirects=True)
+        assert res.status_code == 200
+        assert b"Welcome back, testuser!" in res.data
+
+    def test_location_book_bookmarking(self, client):
+        # Verify status endpoint before bookmarking (fails because not logged in)
+        res = client.get('/api/location-book/status/lon-001')
+        assert res.status_code == 401
+        
+        # Register and log in
+        client.post('/signup', data={
+            'username': 'bookmarkuser',
+            'password': 'password123',
+            'confirm_password': 'password123'
+        })
+
+        # Verify status endpoint before bookmarking
+        res = client.get('/api/location-book/status/lon-001')
+        assert res.status_code == 200
+        assert b'"saved":false' in res.data or b'"saved": false' in res.data
+
+        # Bookmark location via API
+        res = client.post('/api/location-book/toggle', data=json.dumps({
+            'zone_id': 'lon-001'
+        }), content_type='application/json')
+        assert res.status_code == 200
+        data = json.loads(res.data)
+        assert data['saved'] is True
+        assert 'Location saved' in data['message']
+
+        # Verify status now
+        res = client.get('/api/location-book/status/lon-001')
+        data = json.loads(res.data)
+        assert data['saved'] is True
+
+        # View Location Book page
+        res = client.get('/location-book')
+        assert res.status_code == 200
+        assert b'Oxford Street' in res.data
+
+        # Remove location via post form
+        res = client.post('/location-book/remove/lon-001', follow_redirects=True)
+        assert res.status_code == 200
+        assert b'Location removed' in res.data
+
+        # Verify status is false again
+        res = client.get('/api/location-book/status/lon-001')
+        data = json.loads(res.data)
+        assert data['saved'] is False
+

@@ -4,12 +4,26 @@ Fast startup: heavy imports (ML, OCR) loaded lazily on first use.
 """
 
 import os
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+from functools import wraps
+import data.auth as auth
 
 load_dotenv()
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            # If it's an AJAX request (starts with /api), return 401 instead of redirecting
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Unauthorized'}), 401
+            flash('Please sign in to access this page.', 'error')
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ── App Setup ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -76,6 +90,7 @@ def index():
 
 
 @app.route('/upload', methods=['GET', 'POST'])
+@login_required
 def upload_sign():
     if request.method == 'GET':
         return render_template('upload.html')
@@ -139,6 +154,7 @@ def dashboard():
 
 
 @app.route('/admin/zone/<zone_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_zone(zone_id):
     pd = get_data()
     zone = pd.get_zone_by_id(zone_id)
@@ -167,6 +183,7 @@ def edit_zone(zone_id):
 
 
 @app.route('/admin/zone/<zone_id>/delete', methods=['POST'])
+@login_required
 def delete_zone(zone_id):
     pd = get_data()
     zone = pd.get_zone_by_id(zone_id)
@@ -178,6 +195,7 @@ def delete_zone(zone_id):
 
 
 @app.route('/admin/zone/add', methods=['GET', 'POST'])
+@login_required
 def add_zone_manual():
     if request.method == 'POST':
         zone_data = {
@@ -236,6 +254,105 @@ def api_zone_detail(zone_id):
     if not zone:
         return jsonify({'error': 'Zone not found'}), 404
     return jsonify(zone)
+
+
+# ── Authentication Routes ──────────────────────────────────────────────────────
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if 'username' in session:
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not username or not password:
+            flash('All fields are required.', 'error')
+            return render_template('signup.html')
+            
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('signup.html')
+            
+        success, message = auth.register_user(username, password)
+        if success:
+            session['username'] = username.strip()
+            flash('Account created successfully!', 'success')
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
+        else:
+            flash(message, 'error')
+            
+    return render_template('signup.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'username' in session:
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        success, res = auth.authenticate_user(username, password)
+        if success:
+            session['username'] = res
+            flash(f'Welcome back, {res}!', 'success')
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('index'))
+        else:
+            flash(res, 'error')
+            
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('index'))
+
+
+# ── Location Book Routes ───────────────────────────────────────────────────────
+
+@app.route('/location-book')
+@login_required
+def location_book():
+    zones = auth.get_saved_locations(session['username'])
+    return render_template('location_book.html', zones=zones)
+
+
+@app.route('/location-book/remove/<zone_id>', methods=['POST'])
+@login_required
+def location_book_remove(zone_id):
+    success, is_saved, message = auth.toggle_saved_location(session['username'], zone_id)
+    if success:
+        flash(message, 'success')
+    else:
+        flash(message, 'error')
+    return redirect(url_for('location_book'))
+
+
+@app.route('/api/location-book/toggle', methods=['POST'])
+@login_required
+def api_location_book_toggle():
+    data = request.get_json() or {}
+    zone_id = data.get('zone_id')
+    if not zone_id:
+        return jsonify({'error': 'Missing zone_id'}), 400
+    
+    success, is_saved, message = auth.toggle_saved_location(session['username'], zone_id)
+    if success:
+        return jsonify({'success': True, 'saved': is_saved, 'message': message})
+    return jsonify({'error': message}), 400
+
+
+@app.route('/api/location-book/status/<zone_id>')
+@login_required
+def api_location_book_status(zone_id):
+    saved = auth.is_location_saved(session['username'], zone_id)
+    return jsonify({'saved': saved})
 
 
 # ── Entry Point ────────────────────────────────────────────────────────────────

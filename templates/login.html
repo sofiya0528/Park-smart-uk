@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Sign In – Park Smart UK{% endblock %}
+
+{% block extra_css %}
+<style>
+  .auth-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 64px - 48px);
+    background: linear-gradient(135deg, #eef2f3 0%, #8e9eab 100%);
+    padding: 20px;
+  }
+  .auth-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 30px;
+    transition: transform 0.3s ease;
+  }
+  .auth-card:hover {
+    transform: translateY(-5px);
+  }
+  .auth-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  .auth-header i {
+    font-size: 40px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .auth-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .auth-header p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 5px;
+  }
+  .auth-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+  .auth-footer a {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .auth-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    background: var(--accent);
+    color: white;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .auth-btn:hover {
+    background: #2176ae;
+  }
+  .input-icon-group {
+    position: relative;
+  }
+  .input-icon-group i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+  }
+  .input-icon-group .form-control {
+    padding-left: 40px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <i class="fa-solid fa-lock"></i>
+      <h1>Sign In to Park Smart</h1>
+      <p>Access your dashboard and location book</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('login', next=request.args.get('next', '')) }}">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <div class="input-icon-group">
+          <i class="fa fa-user"></i>
+          <input type="text" id="username" name="username" class="form-control" placeholder="Enter username" required autofocus />
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 24px;">
+        <label for="password">Password</label>
+        <div class="input-icon-group">
+          <i class="fa fa-key"></i>
+          <input type="password" id="password" name="password" class="form-control" placeholder="Enter password" required />
+        </div>
+      </div>
+
+      <button type="submit" class="btn auth-btn">
+        <i class="fa fa-sign-in-alt"></i> Sign In
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account? <a href="{{ url_for('signup', next=request.args.get('next', '')) }}">Sign Up</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -11,7 +11,7 @@
     "permit_zone": null,
     "max_stay": null,
     "submitted_at": "2024-01-15T09:00:00",
-    "updated_at": "2026-04-12T20:50:30.113183",
+    "updated_at": "2026-06-29T13:54:40.642954",
     "updated_by": "admin"
   },
   {
@@ -323,5 +323,61 @@
     "image_path": "static/images/uploads/20260412_205112_parking-sign-board-vector-illustration-2TAY86M.jpg",
     "submitted_at": "2026-04-12T20:51:25.343976",
     "id": "user-5249592e"
+  },
+  {
+    "street": "Test Admin Street, London",
+    "restriction_type": "timed",
+    "restriction_text": "No Waiting 8am-6pm",
+    "hours": "8am - 6pm",
+    "days": "Monday - Saturday",
+    "permit_zone": null,
+    "max_stay": null,
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "submitted_at": "2026-04-17T16:00:21.486215",
+    "source": "manual_admin",
+    "id": "user-45026845"
+  },
+  {
+    "street": "Test Admin Street, London",
+    "restriction_type": "timed",
+    "restriction_text": "No Waiting 8am-6pm",
+    "hours": "8am - 6pm",
+    "days": "Monday - Saturday",
+    "permit_zone": null,
+    "max_stay": null,
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "submitted_at": "2026-06-29T13:50:51.453951",
+    "source": "manual_admin",
+    "id": "user-c92fbe69"
+  },
+  {
+    "street": "Test Admin Street, London",
+    "restriction_type": "timed",
+    "restriction_text": "No Waiting 8am-6pm",
+    "hours": "8am - 6pm",
+    "days": "Monday - Saturday",
+    "permit_zone": null,
+    "max_stay": null,
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "submitted_at": "2026-06-29T13:53:48.926700",
+    "source": "manual_admin",
+    "id": "user-61d911ad"
+  },
+  {
+    "street": "Test Admin Street, London",
+    "restriction_type": "timed",
+    "restriction_text": "No Waiting 8am-6pm",
+    "hours": "8am - 6pm",
+    "days": "Monday - Saturday",
+    "permit_zone": null,
+    "max_stay": null,
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "submitted_at": "2026-06-29T13:54:40.421382",
+    "source": "manual_admin",
+    "id": "user-802be996"
   }
 ]

@@ -180,6 +180,7 @@ async function openDetailPanel(zone, marker) {
   document.getElementById('fromInput').value = '';
   document.getElementById('dirDest').textContent = '🏁 To: ' + (zone.street || 'Parking Zone');
   hideSV();
+  checkBookLocationStatus(zone.id);
 
   // Nearby parking (Places API)
   loadNearbyPlaces(zone);
@@ -683,4 +684,84 @@ function distanceMeters(a, b) {
   var aa = sinLat * sinLat
     + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * sinLng * sinLng;
   return 6371000 * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
+}
+
+// ── Location Book JS ───────────────────────────────────────────────────────────
+
+async function checkBookLocationStatus(zoneId) {
+  const bookBtn = document.getElementById('bookLocationBtn');
+  const bookBtnText = document.getElementById('bookLocationBtnText');
+  if (!bookBtn || !bookBtnText) return;
+
+  bookBtnText.textContent = 'Checking location book...';
+  bookBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/location-book/status/' + encodeURIComponent(zoneId));
+    if (res.ok) {
+      const data = await res.json();
+      updateBookLocationButtonState(data.saved);
+    } else {
+      updateBookLocationButtonState(false);
+    }
+  } catch (err) {
+    updateBookLocationButtonState(false);
+  } finally {
+    bookBtn.disabled = false;
+  }
+}
+
+function updateBookLocationButtonState(saved) {
+  const bookBtn = document.getElementById('bookLocationBtn');
+  const bookBtnText = document.getElementById('bookLocationBtnText');
+  if (!bookBtn || !bookBtnText) return;
+
+  const icon = bookBtn.querySelector('i');
+
+  if (saved) {
+    bookBtn.style.background = '#e74c3c';
+    bookBtnText.textContent = 'Remove from Location Book';
+    if (icon) icon.className = 'fa-solid fa-bookmark-slash';
+  } else {
+    bookBtn.style.background = '#2980b9';
+    bookBtnText.textContent = 'Save to Location Book';
+    if (icon) icon.className = 'fa-solid fa-bookmark';
+  }
+}
+
+async function toggleBookLocation() {
+  if (!selectedZone) return;
+  
+  const bookBtn = document.getElementById('bookLocationBtn');
+  if (bookBtn) bookBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/location-book/toggle', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ zone_id: selectedZone.id })
+    });
+
+    if (res.status === 401) {
+      // Unauthorized: redirect to login
+      window.location.href = '/login?next=' + encodeURIComponent(window.location.href);
+      return;
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      updateBookLocationButtonState(data.saved);
+      showToast(data.message, 'success');
+    } else {
+      const data = await res.json();
+      showToast(data.error || 'Failed to update location book.', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Network error updating location book.', 'error');
+  } finally {
+    if (bookBtn) bookBtn.disabled = false;
+  }
 }
